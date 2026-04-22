@@ -12,11 +12,17 @@ import { uploadSensorData, verifySensorData, getSensorHistory } from "@/lib/api"
 import { SensorRecord } from "@/types"
 import { Loader2, Upload, ShieldCheck, RefreshCw } from "lucide-react"
 
-const DATA_TYPES = [
-  { value: "heart_rate",     label: "Heart rate",    unit: "bpm"     },
-  { value: "spo2",           label: "SpO2",           unit: "%"       },
-  { value: "temperature",    label: "Temperature",    unit: "celsius" },
-  { value: "blood_pressure", label: "Blood pressure", unit: "mmHg"   },
+type DataType = "heart_rate" | "spo2" | "temperature" | "blood_pressure"
+
+const DATA_TYPES: {
+  value: DataType
+  label: string
+  unit: string
+}[] = [
+  { value: "heart_rate", label: "Heart rate", unit: "bpm" },
+  { value: "spo2", label: "SpO2", unit: "%" },
+  { value: "temperature", label: "Temperature", unit: "celsius" },
+  { value: "blood_pressure", label: "Blood pressure", unit: "mmHg" },
 ]
 
 function HashBox({ label, value }: { label: string; value: string }) {
@@ -30,41 +36,76 @@ function HashBox({ label, value }: { label: string; value: string }) {
 
 export default function SensorPage() {
   const [form, setForm] = useState({
-    sensor_id: "1", data_type: "heart_rate",
-    value: "87.5", unit: "bpm", patient_id: "P001", location: "ICU Ward 3",
+    sensor_id: "1",
+    data_type: "heart_rate" as DataType,
+    value: "87.5",
+    unit: "bpm",
+    patient_id: "P001",
+    location: "ICU Ward 3",
   })
-  const [verifyForm, setVerifyForm]   = useState({ sensor_id: "1", record_index: "0", cid: "" })
-  const [result,        setResult]        = useState<any>(null)
-  const [verifyResult,  setVerifyResult]  = useState<any>(null)
-  const [history,       setHistory]       = useState<SensorRecord[]>([])
-  const [loading,       setLoading]       = useState(false)
-  const [verifyLoading, setVerifyLoading] = useState(false)
-  const [histLoading,   setHistLoading]   = useState(false)
 
-  const handleTypeChange = (val: string) => {
-    const dt = DATA_TYPES.find(d => d.value === val)
-    setForm(f => ({ ...f, data_type: val, unit: dt?.unit || "" }))
+  const [verifyForm, setVerifyForm] = useState({
+    sensor_id: "1",
+    record_index: "0",
+    cid: "",
+  })
+
+  const [result, setResult] = useState<any>(null)
+  const [verifyResult, setVerifyResult] = useState<any>(null)
+  const [history, setHistory] = useState<SensorRecord[]>([])
+
+  const [loading, setLoading] = useState(false)
+  const [verifyLoading, setVerifyLoading] = useState(false)
+  const [histLoading, setHistLoading] = useState(false)
+
+  const handleTypeChange = (val: string | null) => {
+    const value = (val ?? "heart_rate") as DataType
+    const dt = DATA_TYPES.find(d => d.value === value)
+
+    setForm(f => ({
+      ...f,
+      data_type: value,
+      unit: dt?.unit || "",
+    }))
   }
 
   const handleUpload = async () => {
+    if (!form.value || !form.patient_id) {
+      toast.error("Fill required fields")
+      return
+    }
+
     setLoading(true)
     try {
       const res = await uploadSensorData({
-        sensor_id: Number(form.sensor_id), data_type: form.data_type,
-        value: Number(form.value), unit: form.unit,
-        patient_id: form.patient_id, location: form.location,
+        sensor_id: Number(form.sensor_id),
+        data_type: form.data_type,
+        value: Number(form.value),
+        unit: form.unit,
+        patient_id: form.patient_id,
+        location: form.location,
       })
+
       setResult(res)
-      toast.success("Sensor data uploaded", { description: "Stored on IPFS and blockchain." })
+
+      toast.success("Sensor data uploaded", {
+        description: "Stored on IPFS and blockchain.",
+      })
     } catch (e: any) {
-      toast.error("Upload failed", { description: e.response?.data?.detail || e.message })
+      toast.error("Upload failed", {
+        description: e.response?.data?.detail || e.message,
+      })
     } finally {
       setLoading(false)
     }
   }
 
   const handleVerify = async () => {
-    if (!verifyForm.cid) { toast.error("Enter a CID"); return }
+    if (!verifyForm.cid) {
+      toast.error("Enter a CID")
+      return
+    }
+
     setVerifyLoading(true)
     try {
       const res = await verifySensorData({
@@ -72,10 +113,14 @@ export default function SensorPage() {
         record_index: Number(verifyForm.record_index),
         cid: verifyForm.cid,
       })
+
       setVerifyResult(res)
+
       toast.success("Integrity verified on-chain")
     } catch (e: any) {
-      toast.error("Verify failed", { description: e.response?.data?.detail || e.message })
+      toast.error("Verify failed", {
+        description: e.response?.data?.detail || e.message,
+      })
     } finally {
       setVerifyLoading(false)
     }
@@ -86,9 +131,12 @@ export default function SensorPage() {
     try {
       const res = await getSensorHistory(Number(form.sensor_id))
       setHistory(res.records || [])
+
       toast.success(`Loaded ${res.records?.length || 0} records`)
     } catch (e: any) {
-      toast.error("Failed", { description: e.response?.data?.detail || e.message })
+      toast.error("Failed", {
+        description: e.response?.data?.detail || e.message,
+      })
     } finally {
       setHistLoading(false)
     }
@@ -98,77 +146,81 @@ export default function SensorPage() {
     <div className="space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Sensor Data</h1>
-        <p className="text-sm text-muted-foreground mt-1">Submit ESP32 sensor readings to IPFS and blockchain</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Submit ESP32 sensor readings to IPFS and blockchain
+        </p>
       </div>
 
+      {/* Upload */}
       <Card>
-        <CardHeader><CardTitle className="text-sm font-medium">Submit reading</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">Submit reading</CardTitle>
+        </CardHeader>
+
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Sensor ID</Label>
-              <Input value={form.sensor_id} onChange={e => setForm(f => ({ ...f, sensor_id: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Data type</Label>
-              <Select value={form.data_type} onValueChange={handleTypeChange}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {DATA_TYPES.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+            <Input value={form.sensor_id} onChange={e => setForm(f => ({ ...f, sensor_id: e.target.value }))} />
+            <Select value={form.data_type} onValueChange={handleTypeChange}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {DATA_TYPES.map(d => (
+                  <SelectItem key={d.value} value={d.value}>
+                    {d.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Value</Label>
-              <Input type="number" value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Unit</Label>
-              <Input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} />
-            </div>
+            <Input type="number" value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} />
+            <Input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} />
           </div>
+
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Patient ID</Label>
-              <Input value={form.patient_id} onChange={e => setForm(f => ({ ...f, patient_id: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Location</Label>
-              <Input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
-            </div>
+            <Input value={form.patient_id} onChange={e => setForm(f => ({ ...f, patient_id: e.target.value }))} />
+            <Input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
           </div>
+
           <div className="flex gap-2">
-            <Button onClick={handleUpload} disabled={loading} className="flex-1 bg-teal-600 hover:bg-teal-700">
-              {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading...</> : <><Upload className="w-4 h-4 mr-2" />Upload to IPFS + Blockchain</>}
+            <Button onClick={handleUpload} disabled={loading} className="flex-1">
+              {loading ? <Loader2 className="animate-spin mr-2" /> : <Upload className="mr-2" />}
+              Upload
             </Button>
+
             <Button onClick={handleHistory} disabled={histLoading} variant="outline">
-              {histLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {histLoading ? <Loader2 className="animate-spin" /> : <RefreshCw />}
             </Button>
           </div>
+
           {result && (
-            <div className="space-y-2 pt-2 border-t border-border">
-              <HashBox label="IPFS CID"        value={result.cid}       />
-              <HashBox label="SHA-256 hash"    value={result.data_hash} />
-              <HashBox label="Transaction hash"value={result.tx_hash}   />
+            <div className="space-y-2 pt-2 border-t">
+              <HashBox label="IPFS CID" value={result.cid} />
+              <HashBox label="SHA-256 hash" value={result.data_hash} />
+              <HashBox label="Transaction hash" value={result.tx_hash} />
             </div>
           )}
         </CardContent>
       </Card>
 
+      {/* History */}
       {history.length > 0 && (
         <Card>
-          <CardHeader><CardTitle className="text-sm font-medium">Sensor {form.sensor_id} history</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">
+              Sensor {form.sensor_id} history
+            </CardTitle>
+          </CardHeader>
+
           <CardContent className="space-y-2">
             {history.map((r, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border">
+              <div key={i} className="flex justify-between p-3 border rounded-lg">
                 <div>
-                  <p className="text-sm font-medium capitalize">{r.data_type.replace("_", " ")}</p>
-                  <p className="text-xs font-mono text-muted-foreground">{r.ipfs_cid.slice(0, 24)}...</p>
-                  <p className="text-xs text-muted-foreground">{new Date(r.timestamp * 1000).toLocaleString()}</p>
+                  <p>{r.data_type}</p>
+                  <p className="text-xs">{r.ipfs_cid.slice(0, 20)}...</p>
                 </div>
-                <Badge variant="outline" className={r.is_verified ? "text-teal-600 border-teal-200" : "text-amber-600 border-amber-200"}>
+
+                <Badge>
                   {r.is_verified ? "verified" : "pending"}
                 </Badge>
               </div>
@@ -177,31 +229,26 @@ export default function SensorPage() {
         </Card>
       )}
 
+      {/* Verify */}
       <Card>
-        <CardHeader><CardTitle className="text-sm font-medium">Verify integrity</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">Verify integrity</CardTitle>
+        </CardHeader>
+
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Sensor ID</Label>
-              <Input value={verifyForm.sensor_id} onChange={e => setVerifyForm(f => ({ ...f, sensor_id: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Record index</Label>
-              <Input value={verifyForm.record_index} onChange={e => setVerifyForm(f => ({ ...f, record_index: e.target.value }))} />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>IPFS CID</Label>
-            <Input placeholder="QmXKJ92..." value={verifyForm.cid} onChange={e => setVerifyForm(f => ({ ...f, cid: e.target.value }))} />
-          </div>
-          <Button onClick={handleVerify} disabled={verifyLoading} variant="outline" className="w-full">
-            {verifyLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Verifying...</> : <><ShieldCheck className="w-4 h-4 mr-2" />Verify on-chain</>}
+          <Input value={verifyForm.sensor_id} onChange={e => setVerifyForm(f => ({ ...f, sensor_id: e.target.value }))} />
+          <Input value={verifyForm.record_index} onChange={e => setVerifyForm(f => ({ ...f, record_index: e.target.value }))} />
+          <Input value={verifyForm.cid} onChange={e => setVerifyForm(f => ({ ...f, cid: e.target.value }))} />
+
+          <Button onClick={handleVerify} disabled={verifyLoading} className="w-full">
+            {verifyLoading ? <Loader2 className="animate-spin mr-2" /> : <ShieldCheck className="mr-2" />}
+            Verify
           </Button>
+
           {verifyResult && (
-            <div className="space-y-2 pt-2 border-t border-border">
+            <div className="space-y-2 pt-2 border-t">
               <HashBox label="Computed hash" value={verifyResult.computed_hash} />
               <HashBox label="Transaction hash" value={verifyResult.tx_hash} />
-              <p className="text-xs text-muted-foreground">Integrity result is stored on-chain via <code className="bg-muted px-1 rounded">verifySensorIntegrity()</code></p>
             </div>
           )}
         </CardContent>
